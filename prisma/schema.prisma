@@ -1,0 +1,323 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Para producción con PostgreSQL, cambiar a:
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+// }
+
+model Financiador {
+  id        String     @id @default(uuid())
+  nombre    String
+  consultas Consulta[]
+  patients  Patient[]
+  users     User[]
+  onboardingCases OnboardingCase[]
+}
+
+model Afiliado {
+  id        String     @id @default(uuid())
+  dni       String     @unique
+  nombre    String
+  apellido  String
+  edad      Int
+  financiadorId String
+  consultas Consulta[]
+}
+
+model Patient {
+  id                String   @id @default(uuid())
+  tipoDoc           String   // DNI, LC, LE, etc
+  nroDoc            String
+  nombre            String
+  apellido          String
+  fechaNac          DateTime
+  sexo              String?  // M, F, Otro
+  telefono          String?
+  email             String?
+  localidad         String?
+  provincia         String?
+  canalPreferido    String?  // guardia, programada, telemedicina
+  
+  // Cobertura
+  financiadorId     String
+  financiador       Financiador @relation(fields: [financiadorId], references: [id])
+  planId            String?
+  planNombre        String?
+  nroAfiliado       String
+  estadoCobertura   String   @default("activa") // activa, pausada, baja
+  fechaAlta         DateTime @default(now())
+  fechaBaja         DateTime?
+  
+  // Gestión
+  ownerId           String?  // ID del gestor de casos
+  ownerNombre       String?
+  notas             String?  // Notas internas
+  tags              String?  // JSON array de tags
+  
+  // Riesgo del paciente
+  riskScore         Int      @default(0)
+  riskLevel         String   @default("bajo") // bajo, medio, alto
+  riskReasons       String?  // JSON array de motivos
+  lastRiskCalculationAt DateTime?
+  riskVersion       String?  // Versión de reglas usada
+  
+  // Flags clínicos
+  esCronico         Boolean  @default(false)
+  patologias        String?  // JSON array
+  
+  // Metadatos
+  consentimiento    Boolean  @default(false)
+  privacidad        Boolean  @default(true)
+  
+  consultas         Consulta[]
+  riskHistory       PatientRiskHistory[]
+  quotes            PatientQuote[]
+  onboardingCases   OnboardingCase[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([financiadorId, tipoDoc, nroDoc])
+  @@unique([financiadorId, nroAfiliado])
+  @@index([financiadorId, estadoCobertura])
+  @@index([riskLevel])
+}
+
+model PatientRiskHistory {
+  id                String   @id @default(uuid())
+  patientId         String
+  patient           Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  riskScore         Int
+  riskLevel         String
+  riskReasons       String?  // JSON array
+  riskVersion       String?
+  calculatedAt      DateTime @default(now())
+  
+  @@index([patientId, calculatedAt])
+}
+
+model PatientQuote {
+  id                String   @id @default(uuid())
+  
+  // Inputs del cotizador (JSON)
+  inputs            String   // JSON con todos los datos ingresados
+  
+  // Resultados del cálculo
+  riskScore         Int      // 0-100
+  riskLevel         String   // bajo, medio, alto
+  expectedCost12m   Float    // Costo esperado 12 meses
+  expectedCostP95    Float    // Costo escenario alto (percentil 95)
+  priceCategory     String   // BAJO / MEDIO / ALTO RIESGO
+  riskFactor        Float    // Factor de riesgo (ej: 1.0, 1.3, 1.6)
+  confidence        String   // Alta / Media / Baja
+  reasons           String   // JSON array de explicaciones
+  
+  // Pricing sugerido
+  suggestedPriceMonthly Float?  // Precio mensual sugerido
+  priceRangeMin     Float?   // Precio mínimo del rango
+  priceRangeMax     Float?   // Precio máximo del rango
+  pricingBreakdown  String?  // JSON con breakdown del cálculo
+  pricingConfig     String?  // JSON snapshot de la configuración usada
+  pricingFlags      String?  // JSON con flags (clamped, low_confidence, etc)
+  
+  // Workflow de aprobación
+  status            String   @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
+  submittedAt       DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  approvedByUserId  String?
+  approvedBy        User?    @relation("ApprovedQuotes", fields: [approvedByUserId], references: [id])
+  createdByUserId   String?  // Usuario que creó la cotización
+  createdBy         User?    @relation("CreatedQuotes", fields: [createdByUserId], references: [id])
+  
+  // Metadatos
+  modelVersion      String   @default("1.0")
+  patientId         String?  // Se asigna cuando se crea el paciente
+  patient           Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  
+  // Relaciones
+  approvals         QuoteApproval[]
+  onboardingCase    OnboardingCase?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([patientId])
+  @@index([riskLevel])
+  @@index([status])
+  @@index([createdByUserId])
+}
+
+model OnboardingCase {
+  id                      String   @id @default(uuid())
+  financiadorId           String?
+  financiador             Financiador? @relation(fields: [financiadorId], references: [id])
+  patientId               String?
+  patient                 Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  quoteId                 String?  @unique
+  quote                   PatientQuote? @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  
+  // Estado del Kanban
+  status                  String   @default("PENDIENTE_COTIZACION") // PENDIENTE_COTIZACION, PENDIENTE_APROBACION, APROBADO, PERFIL_COMPLETO, RECHAZADO
+  displayName             String   // "Caso #123 - DNI ****"
+  
+  // Datos para mostrar en card
+  riskScore               Int?
+  riskLevel               String?  // bajo, medio, alto
+  suggestedPriceMonthly   Float?
+  
+  // Asignación
+  assignedToUserId        String?
+  assignedTo              User?    @relation("AssignedCases", fields: [assignedToUserId], references: [id])
+  createdByUserId         String
+  createdBy               User     @relation("CreatedCases", fields: [createdByUserId], references: [id])
+  
+  // Timestamps
+  currentStatusEnteredAt  DateTime @default(now())
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relaciones
+  statusHistory           OnboardingCaseStatusHistory[]
+  caseEvents              OnboardingCaseEvent[] @relation("CaseEvents")
+  
+  @@index([status])
+  @@index([financiadorId])
+  @@index([createdByUserId])
+  @@index([assignedToUserId])
+  @@index([quoteId])
+  @@index([patientId])
+}
+
+model OnboardingCaseStatusHistory {
+  id                String   @id @default(uuid())
+  caseId            String
+  case              OnboardingCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fromStatus        String?  // null si es primer estado
+  toStatus          String
+  changedByUserId   String
+  changedBy         User     @relation(fields: [changedByUserId], references: [id])
+  changedAt         DateTime @default(now())
+  note              String?  // Nota opcional del cambio
+  durationSeconds   Int?     // Duración en el estado anterior (calculado)
+  
+  @@index([caseId])
+  @@index([changedByUserId])
+  @@index([changedAt])
+  @@index([toStatus])
+}
+
+model OnboardingCaseEvent {
+  id                String   @id @default(uuid())
+  caseId            String
+  case              OnboardingCase @relation("CaseEvents", fields: [caseId], references: [id], onDelete: Cascade)
+  eventType         String   // EDIT, STATUS_CHANGE, OVERRIDE
+  fromStatus        String?  // Estado anterior del caso
+  toStatus          String?  // Estado nuevo del caso (si cambió)
+  editedFields      String?  // JSON con campos editados {field: {old, new}}
+  reason            String?  // Motivo del cambio (obligatorio en ajustes de aprobador/admin)
+  performedByUserId  String
+  performedBy       User     @relation("CaseEventPerformedBy", fields: [performedByUserId], references: [id])
+  performedAt       DateTime @default(now())
+  
+  @@index([caseId])
+  @@index([performedByUserId])
+  @@index([performedAt])
+  @@index([eventType])
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  passwordHash    String   // bcrypt hash
+  role            String   // COTIZADOR, APROBADOR, OFICINA, ADMIN
+  financiadorId   String?
+  financiador     Financiador? @relation(fields: [financiadorId], references: [id])
+  isActive        Boolean  @default(true)
+  
+  // Relaciones
+  createdQuotes   PatientQuote[] @relation("CreatedQuotes")
+  approvedQuotes  PatientQuote[] @relation("ApprovedQuotes")
+  quoteApprovals QuoteApproval[]
+  createdCases    OnboardingCase[] @relation("CreatedCases")
+  assignedCases   OnboardingCase[] @relation("AssignedCases")
+  caseStatusHistory OnboardingCaseStatusHistory[]
+  caseEvents      OnboardingCaseEvent[] @relation("CaseEventPerformedBy")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([email])
+  @@index([role])
+  @@index([financiadorId])
+}
+
+model QuoteApproval {
+  id              String   @id @default(uuid())
+  quoteId         String
+  quote           PatientQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  decision        String   // APPROVED, REJECTED
+  reason          String?  // Motivo de rechazo o aprobación
+  decidedByUserId String
+  decidedBy       User     @relation(fields: [decidedByUserId], references: [id])
+  decidedAt       DateTime @default(now())
+  
+  @@index([quoteId])
+  @@index([decidedByUserId])
+}
+
+model Prestador {
+  id        String     @id @default(uuid())
+  nombre    String
+  matricula String     @unique
+  consultas Consulta[]
+}
+
+model Consulta {
+  id                String   @id @default(uuid())
+  fecha             DateTime
+  especialidad      String
+  canal             String   // guardia, programada, telemedicina
+  costo             Float
+  duracion          Int      // minutos
+  efectiva          Boolean
+  motivoNoEfectiva  String?
+  diagnostico       String?
+  motivoConsulta    String?
+  deriva            Boolean
+  tipoDerivacion    String?
+  prestadorDerivado String?
+  riskScore         Int      @default(0)
+  riskLevel         String   @default("bajo") // bajo, medio, alto
+  triggeredRules    String?  // JSON array
+  trazabilidad      String?  // JSON array
+  resumenClinico    String?
+  
+  afiliadoId        String?
+  afiliado          Afiliado? @relation(fields: [afiliadoId], references: [id])
+  
+  patientId         String?
+  patient           Patient?  @relation(fields: [patientId], references: [id])
+  
+  prestadorId       String
+  prestador         Prestador @relation(fields: [prestadorId], references: [id])
+  
+  financiadorId     String
+  financiador       Financiador @relation(fields: [financiadorId], references: [id])
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

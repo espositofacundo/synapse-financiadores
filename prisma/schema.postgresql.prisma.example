@@ -1,0 +1,9 @@
+// EJEMPLO: Configuración de Prisma para PostgreSQL
+// Copia este contenido a schema.prisma cuando vayas a producción
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// El resto del schema permanece igual...
