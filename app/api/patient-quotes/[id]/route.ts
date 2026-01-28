@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requirePermission, getCurrentUser } from '@/lib/auth'
+import type { QuoteInputs } from '@/lib/patient-quote-engine'
 
 /**
  * GET /api/patient-quotes/[id]
@@ -20,6 +21,20 @@ export async function GET(
             nombre: true,
             apellido: true,
             nroDoc: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true
           }
         }
       }
@@ -158,7 +173,7 @@ export async function PUT(
     }
     
     const body = await request.json()
-    const { calcularCotizacion, QuoteInputs } = await import('@/lib/patient-quote-engine')
+    const { calcularCotizacion } = await import('@/lib/patient-quote-engine')
     
     // Validar inputs requeridos
     if (!body.edad || !body.sexo) {
