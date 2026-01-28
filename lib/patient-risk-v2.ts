@@ -626,7 +626,7 @@ async function calcularSenalesFraude(
         evidence: {
           consultas_imposibles: impossibleSchedule.count
         },
-        value: true
+        value: 1
       })
     }
   }
