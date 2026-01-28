@@ -565,7 +565,7 @@ async function calcularSenalesFraude(
   }, {} as Record<string, number>)
 
   const maxConcentration = consultas30d.length > 0 
-    ? Math.max(...Object.values(prestadores), 0) / consultas30d.length 
+    ? Math.max(...(Object.values(prestadores) as number[]), 0) / consultas30d.length 
     : 0
   const noEffectiveRate = consultas30d.length > 0
     ? consultas30d.filter(c => !c.efectiva).length / consultas30d.length
