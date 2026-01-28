@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma'
 import { requirePermission } from '@/lib/auth'
 import { startOfDay, endOfDay } from 'date-fns'
 
+// Forzar que esta ruta sea dinámica (no estática)
+export const dynamic = 'force-dynamic'
+
 // GET: Lista de pacientes con filtros y búsqueda
 export async function GET(request: NextRequest) {
   try {
