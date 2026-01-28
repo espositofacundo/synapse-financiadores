@@ -264,7 +264,9 @@ export async function PATCH(
           })
         }
       }
-    } else if (user.role === 'APROBADOR' || user.role === 'ADMIN') {
+    }
+    
+    if (user.role === 'APROBADOR' || user.role === 'ADMIN') {
       // APROBADOR: puede ajustar aprobación (mantener estado)
       if (currentStatus === 'APROBADO') {
         if (!body.reason) {
@@ -315,7 +317,9 @@ export async function PATCH(
           }
         }
       }
-    } else if (user.role === 'OFICINA' || user.role === 'ADMIN') {
+    }
+    
+    if (user.role === 'OFICINA' || user.role === 'ADMIN') {
       // OFICINA: puede editar datos administrativos del paciente
       if (currentStatus === 'APROBADO' || currentStatus === 'PERFIL_COMPLETO') {
         newStatus = currentStatus // Mantener estado
