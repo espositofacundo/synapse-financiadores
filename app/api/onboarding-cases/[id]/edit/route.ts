@@ -87,7 +87,7 @@ export async function PATCH(
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
-            sexo: body.quoteInputs.sexo,
+            sexo: (body.quoteInputs.sexo === 'M' || body.quoteInputs.sexo === 'F' || body.quoteInputs.sexo === 'Otro') ? body.quoteInputs.sexo : 'M',
             provincia: body.quoteInputs.provincia,
             patologiasCronicas: Array.isArray(body.quoteInputs.patologiasCronicas) ? body.quoteInputs.patologiasCronicas : [],
             medicamentosCronicos: parseInt(body.quoteInputs.medicamentosCronicos || '0'),
@@ -151,7 +151,7 @@ export async function PATCH(
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
-            sexo: body.quoteInputs.sexo,
+            sexo: (body.quoteInputs.sexo === 'M' || body.quoteInputs.sexo === 'F' || body.quoteInputs.sexo === 'Otro') ? body.quoteInputs.sexo : 'M',
             provincia: body.quoteInputs.provincia,
             patologiasCronicas: Array.isArray(body.quoteInputs.patologiasCronicas) ? body.quoteInputs.patologiasCronicas : [],
             medicamentosCronicos: parseInt(body.quoteInputs.medicamentosCronicos || '0'),
@@ -214,7 +214,7 @@ export async function PATCH(
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
-            sexo: body.quoteInputs.sexo,
+            sexo: (body.quoteInputs.sexo === 'M' || body.quoteInputs.sexo === 'F' || body.quoteInputs.sexo === 'Otro') ? body.quoteInputs.sexo : 'M',
             provincia: body.quoteInputs.provincia,
             patologiasCronicas: Array.isArray(body.quoteInputs.patologiasCronicas) ? body.quoteInputs.patologiasCronicas : [],
             medicamentosCronicos: parseInt(body.quoteInputs.medicamentosCronicos || '0'),

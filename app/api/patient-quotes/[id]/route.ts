@@ -185,7 +185,7 @@ export async function PUT(
     
     const inputs: QuoteInputs = {
       edad: parseInt(body.edad),
-      sexo: body.sexo,
+      sexo: (body.sexo === 'M' || body.sexo === 'F' || body.sexo === 'Otro') ? body.sexo : 'M',
       provincia: body.provincia,
       patologiasCronicas: Array.isArray(body.patologiasCronicas) ? body.patologiasCronicas : [],
       medicamentosCronicos: parseInt(body.medicamentosCronicos || '0'),

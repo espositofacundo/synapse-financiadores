@@ -598,7 +598,7 @@ async function main() {
       // Calcular cotización real
       const quoteInputs = {
         edad,
-        sexo,
+        sexo: (sexo === 'M' || sexo === 'F' || sexo === 'Otro') ? sexo : 'M' as 'M' | 'F' | 'Otro',
         provincia,
         patologiasCronicas: patologias,
         medicamentosCronicos,
