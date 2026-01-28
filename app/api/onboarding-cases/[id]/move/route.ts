@@ -75,7 +75,10 @@ export async function PATCH(
         quote: {
           select: {
             id: true,
-            status: true
+            status: true,
+            riskScore: true,
+            riskLevel: true,
+            suggestedPriceMonthly: true
           }
         },
         patient: {
@@ -123,9 +126,9 @@ export async function PATCH(
       case: {
         ...updatedCase,
         daysInColumn,
-        riskScore: updatedCase.riskScore || updatedCase.quote?.riskScore || null,
-        riskLevel: updatedCase.riskLevel || updatedCase.quote?.riskLevel || null,
-        suggestedPriceMonthly: updatedCase.suggestedPriceMonthly || updatedCase.quote?.suggestedPriceMonthly || null
+        riskScore: updatedCase.quote?.riskScore || null,
+        riskLevel: updatedCase.quote?.riskLevel || null,
+        suggestedPriceMonthly: updatedCase.quote?.suggestedPriceMonthly || null
       }
     })
   } catch (error: any) {
