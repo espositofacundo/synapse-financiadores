@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 
     // Top alertas (consultas con riesgo alto)
     const topAlertas = consultas
-      .filter(c => c.riskLevel === 'alto')
+      .filter(c => c.riskLevel === 'alto' && c.afiliado && c.prestador)
       .sort((a, b) => b.riskScore - a.riskScore)
       .slice(0, 10)
       .map(c => ({
@@ -118,8 +118,8 @@ export async function GET(request: NextRequest) {
         canal: c.canal,
         costo: c.costo,
         riskScore: c.riskScore,
-        afiliado: `${c.afiliado.nombre} ${c.afiliado.apellido}`,
-        prestador: c.prestador.nombre
+        afiliado: c.afiliado ? `${c.afiliado.nombre} ${c.afiliado.apellido}` : 'N/A',
+        prestador: c.prestador?.nombre || 'N/A'
       }))
 
     return NextResponse.json({
