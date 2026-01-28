@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/auth'
 import type { OnboardingStatus } from '@/lib/onboarding-workflow'
+import type { QuoteInputs } from '@/lib/patient-quote-engine'
 
 /**
  * PATCH /api/onboarding-cases/:id/edit
@@ -82,7 +83,7 @@ export async function PATCH(
         
         // Actualizar quote si se proporcionan nuevos inputs
         if (body.quoteInputs && currentCase.quote) {
-          const { calcularCotizacion, QuoteInputs } = await import('@/lib/patient-quote-engine')
+          const { calcularCotizacion } = await import('@/lib/patient-quote-engine')
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
@@ -146,7 +147,7 @@ export async function PATCH(
         
         // Actualizar quote si se proporcionan nuevos inputs
         if (body.quoteInputs && currentCase.quote) {
-          const { calcularCotizacion, QuoteInputs } = await import('@/lib/patient-quote-engine')
+          const { calcularCotizacion } = await import('@/lib/patient-quote-engine')
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
@@ -209,7 +210,7 @@ export async function PATCH(
         quoteStatus = 'DRAFT'
         
         if (body.quoteInputs && currentCase.quote) {
-          const { calcularCotizacion, QuoteInputs } = await import('@/lib/patient-quote-engine')
+          const { calcularCotizacion } = await import('@/lib/patient-quote-engine')
           
           const inputs: QuoteInputs = {
             edad: parseInt(body.quoteInputs.edad),
