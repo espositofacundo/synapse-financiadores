@@ -44,7 +44,13 @@ interface ConsultaDetalle {
     apellido: string
     dni: string
     edad: number
-  }
+  } | null
+  patient: {
+    id: string
+    nombre: string
+    apellido: string
+    nroDoc: string
+  } | null
   prestador: {
     id: string
     nombre: string
@@ -196,24 +202,43 @@ export default function ConsultaDetallePage() {
           </CardContent>
         </Card>
 
-        {/* Datos del Afiliado */}
+        {/* Datos del Afiliado/Paciente */}
         <Card>
           <CardHeader>
-            <CardTitle>Datos del Afiliado</CardTitle>
+            <CardTitle>Datos del {consulta.afiliado ? 'Afiliado' : consulta.patient ? 'Paciente' : 'Afiliado/Paciente'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <span className="text-sm text-muted-foreground">Nombre:</span>
-              <p className="font-medium">{consulta.afiliado.nombre} {consulta.afiliado.apellido}</p>
-            </div>
-            <div>
-              <span className="text-sm text-muted-foreground">DNI (anonimizado):</span>
-              <p className="font-medium">{consulta.afiliado.dni}</p>
-            </div>
-            <div>
-              <span className="text-sm text-muted-foreground">Edad:</span>
-              <p className="font-medium">{consulta.afiliado.edad} años</p>
-            </div>
+            {consulta.afiliado ? (
+              <>
+                <div>
+                  <span className="text-sm text-muted-foreground">Nombre:</span>
+                  <p className="font-medium">{consulta.afiliado.nombre} {consulta.afiliado.apellido}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">DNI (anonimizado):</span>
+                  <p className="font-medium">{consulta.afiliado.dni}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Edad:</span>
+                  <p className="font-medium">{consulta.afiliado.edad} años</p>
+                </div>
+              </>
+            ) : consulta.patient ? (
+              <>
+                <div>
+                  <span className="text-sm text-muted-foreground">Nombre:</span>
+                  <p className="font-medium">{consulta.patient.nombre} {consulta.patient.apellido}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Documento:</span>
+                  <p className="font-medium">{consulta.patient.nroDoc}</p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p className="text-sm text-muted-foreground">No hay información de afiliado o paciente asociada</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

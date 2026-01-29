@@ -1,0 +1,13 @@
+# Configuración opcional para Render (Web Service)
+#
+# Start Command: usar solo "npm run start".
+# NO incluir setup-production.ts en Start ni en Release Command si la DB es
+# Supabase: Render no puede conectar a Supabase desde sus servidores.
+# Crear usuarios demo una vez desde tu PC (ver RENDER-POST-DEPLOY.md).
+
+services:
+  - type: web
+    name: synapse-financiadores
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
