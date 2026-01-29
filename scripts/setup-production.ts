@@ -42,6 +42,7 @@ async function setupProduction() {
         { email: 'cotizador@demo.com', name: 'Cotizador Demo', role: 'COTIZADOR' },
         { email: 'aprobador@demo.com', name: 'Aprobador Demo', role: 'APROBADOR' },
         { email: 'oficina@demo.com', name: 'Oficina Demo', role: 'OFICINA' },
+        { email: 'auditor@demo.com', name: 'Auditor Demo', role: 'AUDITOR' },
         { email: 'admin@demo.com', name: 'Admin Demo', role: 'ADMIN' }
       ]
       
@@ -71,6 +72,7 @@ async function setupProduction() {
     console.log('   • cotizador@demo.com / demo123')
     console.log('   • aprobador@demo.com / demo123')
     console.log('   • oficina@demo.com / demo123')
+    console.log('   • auditor@demo.com / demo123')
     console.log('   • admin@demo.com / demo123')
     
   } catch (error) {

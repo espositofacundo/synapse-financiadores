@@ -8,7 +8,7 @@ import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 
-export type UserRole = 'COTIZADOR' | 'APROBADOR' | 'OFICINA' | 'ADMIN'
+export type UserRole = 'COTIZADOR' | 'APROBADOR' | 'OFICINA' | 'ADMIN' | 'AUDITOR'
 export type QuoteStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'PATIENT_CREATED'
 
 export type Permission =
@@ -25,6 +25,8 @@ export type Permission =
   | 'config:update'
   | 'users:manage'
   | 'audit:read'
+  | 'audit:run'
+  | 'data_sources:read'
 
 export interface User {
   id: string
@@ -49,11 +51,20 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'quote:approve',
     'quote:reject',
     'patient:read',
-    'audit:read'
+    'audit:read',
+    'audit:run',
+    'data_sources:read'
   ],
   OFICINA: [
     'quote:read',
     'patient:create',
+    'patient:read',
+    'audit:read'
+  ],
+  AUDITOR: [
+    'audit:read',
+    'audit:run',
+    'data_sources:read',
     'patient:read'
   ],
   ADMIN: [
@@ -69,7 +80,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'config:read',
     'config:update',
     'users:manage',
-    'audit:read'
+    'audit:read',
+    'audit:run',
+    'data_sources:read'
   ]
 }
 
@@ -171,8 +184,13 @@ export async function authenticate(email: string, password: string): Promise<Use
     const { passwordHash, ...userWithoutPassword } = user
     console.log('[AUTH] Usuario autenticado exitosamente:', email)
     return userWithoutPassword as User
-  } catch (error) {
+  } catch (error: any) {
     console.error('[AUTH] Error en authenticate:', error)
+    // No devolver "Credenciales inválidas" cuando falla la conexión a la BD
+    const isDbError = error?.name === 'PrismaClientInitializationError' ||
+      error?.code === 'P1001' || // Can't reach
+      error?.code === 'P1017'    // Server closed connection
+    if (isDbError) throw error
     return null
   }
 }

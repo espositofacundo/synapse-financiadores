@@ -50,9 +50,14 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('[LOGIN] Error en login:', error)
+    const isDbError = error?.name === 'PrismaClientInitializationError' ||
+      error?.code === 'P1001' || error?.code === 'P1017'
+    const message = isDbError
+      ? 'No se pudo conectar a la base de datos. Revisá DATABASE_URL y que el proyecto Supabase esté activo.'
+      : (error?.message || 'Error al autenticar')
     return NextResponse.json(
-      { error: error.message || 'Error al autenticar' },
-      { status: 500 }
+      { error: message },
+      { status: isDbError ? 503 : 500 }
     )
   }
 }

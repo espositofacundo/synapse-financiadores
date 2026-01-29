@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Para producción con PostgreSQL, cambiar a:
@@ -23,6 +24,7 @@ model Financiador {
   patients  Patient[]
   users     User[]
   onboardingCases OnboardingCase[]
+  dataSources DataSource[]
 }
 
 model Afiliado {
@@ -256,6 +258,9 @@ model User {
   assignedCases   OnboardingCase[] @relation("AssignedCases")
   caseStatusHistory OnboardingCaseStatusHistory[]
   caseEvents      OnboardingCaseEvent[] @relation("CaseEventPerformedBy")
+  audits          Audit[] @relation("AuditCreatedBy")
+  importBatches   ImportBatch[] @relation("ImportBatchCreatedBy")
+  resolvedFindings AuditFinding[] @relation("FindingResolvedBy")
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -306,18 +311,214 @@ model Consulta {
   trazabilidad      String?  // JSON array
   resumenClinico    String?
   
+  // Para POC Auditoría IA
+  displayName       String?  // "Caso #1001 - Femenino, 48 años"
+  currency          String   @default("ARS")
+  providerName      String?  // Nombre prestador (denormalizado para UI)
+  auditStatus       String   @default("NOT_AUDITED") // NOT_AUDITED | AUDITED | HAS_FINDINGS
+  
   afiliadoId        String?
   afiliado          Afiliado? @relation(fields: [afiliadoId], references: [id])
   
   patientId         String?
   patient           Patient?  @relation(fields: [patientId], references: [id])
   
-  prestadorId       String
-  prestador         Prestador @relation(fields: [prestadorId], references: [id])
+  prestadorId       String?
+  prestador         Prestador? @relation(fields: [prestadorId], references: [id])
   
   financiadorId     String
   financiador       Financiador @relation(fields: [financiadorId], references: [id])
   
+  // Importación
+  importBatchId     String?
+  importBatch       ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  
+  // Relaciones nuevas
+  invoices          ConsultationInvoice[]
+  auditFindings     AuditFinding[] @relation("FindingConsultation")
+  targetedAudits    Audit[] @relation("AuditTargetConsultation")
+  
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  
+  @@index([importBatchId])
+  @@index([auditStatus])
+  @@index([fecha])
+  @@index([riskLevel])
+}
+
+// --- Módulo Auditoría IA / Consultas-Prácticas (POC Refactored) ---
+
+// ImportBatch: reemplaza DataSource, representa una importación de datos
+model ImportBatch {
+  id                        String    @id @default(uuid())
+  name                      String    // "Importación 29/01 - Facturas+Consultas"
+  type                      String    // CONSULTAS | FACTURAS | MIXTA
+  status                    String    @default("UPLOADED") // UPLOADED | PROCESSING | READY | ERROR
+  recordsCountConsultations Int       @default(0)
+  recordsCountInvoices      Int       @default(0)
+  uploadedAt                DateTime  @default(now())
+  processedAt               DateTime?
+  metadata                  String?   // JSON
+  createdByUserId           String?
+  createdBy                 User?     @relation("ImportBatchCreatedBy", fields: [createdByUserId], references: [id])
+  
+  // Relaciones
+  consultations             Consulta[]
+  invoices                  Invoice[]
+  
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@index([createdByUserId])
+}
+
+// Invoice: facturas
+model Invoice {
+  id              String    @id @default(uuid())
+  invoiceNumber   String    // Número de factura
+  issuedAt        DateTime  // Fecha emisión
+  totalAmount     Float
+  currency        String    @default("ARS")
+  status          String    @default("RECEIVED") // RECEIVED | VALIDATED | REJECTED | PAID
+  providerName    String?   // Prestador
+  payerName       String?   // Pagador
+  
+  // Importación
+  importBatchId   String?
+  importBatch     ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  
+  // Relaciones
+  consultations   ConsultationInvoice[]
+  auditFindings   AuditFinding[] @relation("FindingInvoice")
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([importBatchId])
+  @@index([status])
+  @@index([issuedAt])
+}
+
+// ConsultationInvoice: relación N:M entre consultas y facturas
+model ConsultationInvoice {
+  id              String   @id @default(uuid())
+  consultationId  String
+  consultation    Consulta @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  invoiceId       String
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  
+  @@unique([consultationId, invoiceId])
+  @@index([consultationId])
+  @@index([invoiceId])
+}
+
+// Audit: auditoría con scope (single, batch, recommended)
+model Audit {
+  id                      String    @id @default(uuid())
+  auditType               String    // FACTURA | PRACTICA | ADMINISTRATIVA | CLINICA
+  auditScope              String    @default("BATCH_FILTER") // SINGLE_CONSULTATION | BATCH_FILTER | RECOMMENDED_SET
+  status                  String    @default("PENDING") // PENDING | RUNNING | COMPLETED
+  
+  // Target según scope
+  targetConsultationId    String?   // Si scope = SINGLE_CONSULTATION
+  targetConsultation      Consulta? @relation("AuditTargetConsultation", fields: [targetConsultationId], references: [id], onDelete: SetNull)
+  filterPayload           String?   // JSON: filtros usados si scope = BATCH_FILTER
+  recommendedPayload      String?   // JSON: razones si scope = RECOMMENDED_SET
+  
+  // Resultados
+  findingsCountTotal      Int       @default(0)
+  findingsCountHigh       Int       @default(0)
+  findingsCountMedium     Int       @default(0)
+  findingsCountLow        Int       @default(0)
+  estimatedSavings        Float     @default(0) // Mock: ahorro estimado
+  consultationsAudited    Int       @default(0) // Cantidad de consultas auditadas
+  
+  // Usuario
+  createdByUserId         String
+  createdBy               User      @relation("AuditCreatedBy", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  startedAt               DateTime?
+  completedAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  // Relaciones
+  findings                AuditFinding[]
+  
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([auditScope])
+  @@index([auditType])
+}
+
+// AuditFinding: hallazgo de auditoría
+model AuditFinding {
+  id              String    @id @default(uuid())
+  auditId         String
+  audit           Audit     @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  
+  // Entidad asociada
+  consultationId  String?
+  consultation    Consulta? @relation("FindingConsultation", fields: [consultationId], references: [id], onDelete: SetNull)
+  invoiceId       String?
+  invoice         Invoice?  @relation("FindingInvoice", fields: [invoiceId], references: [id], onDelete: SetNull)
+  
+  // Datos del hallazgo
+  severity        String    // LOW | MEDIUM | HIGH
+  category        String    // DUPLICADO | INCONSISTENCIA | SOBREPRACTICA | CLINICA | ADMIN
+  title           String    // Título corto
+  description     String    // Descripción detallada
+  evidence        String?   // JSON: campos que sustentan el hallazgo
+  confidence      Float     // 0-1
+  suggestedAction String?
+  
+  // Workflow
+  status          String    @default("OPEN") // OPEN | IN_REVIEW | RESOLVED
+  resolvedAt      DateTime?
+  resolvedByUserId String?
+  resolvedBy      User?     @relation("FindingResolvedBy", fields: [resolvedByUserId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([auditId])
+  @@index([consultationId])
+  @@index([invoiceId])
+  @@index([severity])
+  @@index([category])
+  @@index([status])
+}
+
+// Mantener DataSource y PopulationModel por compatibilidad (deprecated)
+model DataSource {
+  id            String    @id @default(uuid())
+  name          String
+  type          String
+  status        String    @default("UPLOADED")
+  recordsCount  Int       @default(0)
+  uploadedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  metadata      String?
+  financiadorId String?
+  financiador   Financiador? @relation(fields: [financiadorId], references: [id], onDelete: SetNull)
+  populationModels PopulationModel[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  @@index([status])
+}
+
+model PopulationModel {
+  id            String   @id @default(uuid())
+  sourceId      String
+  source        DataSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  modelType     String
+  status        String   @default("READY")
+  entitiesCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  @@index([sourceId])
 }

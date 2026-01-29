@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { AppHeader, AppSidebar, type SidebarItem } from "@/components/ui-synapse"
 import { Button } from "@/components/ui/button"
-import { LogOut, LayoutDashboard, FileSearch, Users, CheckCircle2, UserPlus, Kanban } from "lucide-react"
+import { LogOut, LayoutDashboard, FileSearch, Users, CheckCircle2, UserPlus, Kanban, ScanSearch, AlertTriangle, Stethoscope } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface User {
@@ -80,12 +80,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     )
   }
 
+  // No renderizar páginas protegidas sin usuario: evita "Rendered more hooks" cuando /api/auth/me devuelve 401.
+  // La redirección a /login ya se hace en el useEffect cuando la API devuelve 401.
   if (!user) {
-    return <>{children}</>
+    return (
+      <div className="flex h-screen items-center justify-center bg-muted/30">
+        <p className="text-sm text-muted-foreground">Redirigiendo a login...</p>
+      </div>
+    )
   }
 
   // Construir items del sidebar según permisos
   const sidebarItems: SidebarItem[] = []
+
+  // Permisos por rol
+  const rolePermissions: Record<string, string[]> = {
+    COTIZADOR: ['quote:create', 'quote:read', 'quote:update', 'quote:submit', 'patient:read'],
+    APROBADOR: ['quote:read', 'quote:approve', 'quote:reject', 'patient:read', 'audit:read', 'audit:run', 'consultations:read'],
+    OFICINA: ['quote:read', 'patient:create', 'patient:read', 'audit:read', 'consultations:read'],
+    AUDITOR: ['audit:read', 'audit:run', 'consultations:read', 'patient:read'],
+    ADMIN: ['quote:create', 'quote:read', 'quote:update', 'quote:submit', 'quote:approve', 'quote:reject', 'quote:override', 'patient:create', 'patient:read', 'config:read', 'config:update', 'users:manage', 'audit:read', 'audit:run', 'consultations:read']
+  }
+  const userPermissions = rolePermissions[user.role as keyof typeof rolePermissions] || []
 
   // Dashboard - todos los usuarios
   sidebarItems.push({
@@ -94,22 +110,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     icon: LayoutDashboard,
   })
 
-  // Auditoría - según permisos
-  const rolePermissions: Record<string, string[]> = {
-    COTIZADOR: ['quote:create', 'quote:read', 'quote:update', 'quote:submit', 'patient:read'],
-    APROBADOR: ['quote:read', 'quote:approve', 'quote:reject', 'patient:read', 'audit:read'],
-    OFICINA: ['quote:read', 'patient:create', 'patient:read'],
-    ADMIN: ['quote:create', 'quote:read', 'quote:update', 'quote:submit', 'quote:approve', 'quote:reject', 'quote:override', 'patient:create', 'patient:read', 'config:read', 'config:update', 'users:manage', 'audit:read']
-  }
-  const userPermissions = rolePermissions[user.role as keyof typeof rolePermissions] || []
-
-  if (userPermissions.includes('audit:read')) {
+  // Consultas / Prácticas (APROBADOR, OFICINA, ADMIN) - Core operativo
+  if (userPermissions.includes('consultations:read') || userPermissions.includes('audit:read')) {
     sidebarItems.push({
-      href: "/auditoria",
-      label: "Auditoría",
-      icon: FileSearch,
+      href: "/consultas-practicas",
+      label: "Consultas / Prácticas",
+      icon: Stethoscope,
     })
   }
+
+  // Auditoría IA (APROBADOR, OFICINA, ADMIN)
+  if (userPermissions.includes('audit:read')) {
+    sidebarItems.push({
+      href: "/auditoria-ia",
+      label: "Auditoría IA",
+      icon: ScanSearch,
+    })
+  }
+
+  // Hallazgos (APROBADOR, OFICINA, ADMIN)
+  if (userPermissions.includes('audit:read')) {
+    sidebarItems.push({
+      href: "/hallazgos",
+      label: "Hallazgos",
+      icon: AlertTriangle,
+    })
+  }
+
+  // --- Módulos complementarios POC ---
 
   // Pacientes - según permisos
   if (userPermissions.includes('patient:read')) {
