@@ -5,21 +5,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer
-} from "recharts"
+import dynamic from "next/dynamic"
+
+// Importar Recharts de forma dinámica para evitar errores de SSR
+const LineChart = dynamic(() => import("recharts").then(mod => mod.LineChart), { ssr: false })
+const Line = dynamic(() => import("recharts").then(mod => mod.Line), { ssr: false })
+const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), { ssr: false })
+const Bar = dynamic(() => import("recharts").then(mod => mod.Bar), { ssr: false })
+const PieChart = dynamic(() => import("recharts").then(mod => mod.PieChart), { ssr: false })
+const Pie = dynamic(() => import("recharts").then(mod => mod.Pie), { ssr: false })
+const Cell = dynamic(() => import("recharts").then(mod => mod.Cell), { ssr: false })
+const XAxis = dynamic(() => import("recharts").then(mod => mod.XAxis), { ssr: false })
+const YAxis = dynamic(() => import("recharts").then(mod => mod.YAxis), { ssr: false })
+const CartesianGrid = dynamic(() => import("recharts").then(mod => mod.CartesianGrid), { ssr: false })
+const Tooltip = dynamic(() => import("recharts").then(mod => mod.Tooltip), { ssr: false })
+const Legend = dynamic(() => import("recharts").then(mod => mod.Legend), { ssr: false })
+const ResponsiveContainer = dynamic(() => import("recharts").then(mod => mod.ResponsiveContainer), { ssr: false })
 
 interface Metrics {
   kpis: {
@@ -45,11 +46,21 @@ interface Metrics {
   }>
 }
 
+const EMPTY_METRICS: Metrics = {
+  kpis: { totalConsultas: 0, porcentajeEfectivas: 0, costoTotal: 0, costoPromedio: 0, reconsultas7d: 0 },
+  topEspecialidades: [],
+  timeSeries: [],
+  especialidadesChart: [],
+  canalesChart: [],
+  topAlertas: []
+}
+
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
 
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [metrics, setMetrics] = useState<Metrics>(EMPTY_METRICS)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState({
     from: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
     to: format(new Date(), 'yyyy-MM-dd')
@@ -61,6 +72,7 @@ export default function DashboardPage() {
 
   const fetchMetrics = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams({
         from: dateRange.from,
@@ -68,18 +80,42 @@ export default function DashboardPage() {
       })
       const res = await fetch(`/api/metrics?${params}`)
       const data = await res.json()
-      setMetrics(data)
-    } catch (error) {
-      console.error('Error fetching metrics:', error)
+      
+      if (data.error) {
+        setError(data.error)
+        setMetrics(EMPTY_METRICS)
+      } else {
+        // Asegurar que todos los arrays existan
+        setMetrics({
+          kpis: data.kpis || EMPTY_METRICS.kpis,
+          topEspecialidades: data.topEspecialidades || [],
+          timeSeries: data.timeSeries || [],
+          especialidadesChart: data.especialidadesChart || [],
+          canalesChart: data.canalesChart || [],
+          topAlertas: data.topAlertas || []
+        })
+      }
+    } catch (err: any) {
+      console.error('Error fetching metrics:', err)
+      setError(err.message || 'Error al cargar métricas')
+      setMetrics(EMPTY_METRICS)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading || !metrics) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="text-center">Cargando...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center text-red-500">Error: {error}</div>
       </div>
     )
   }
@@ -146,30 +182,36 @@ export default function DashboardPage() {
             <CardTitle>Consultas y Costo por Día</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={metrics.timeSeries}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="fecha" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="consultas"
-                  stroke="#3b82f6"
-                  name="Consultas"
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="costo"
-                  stroke="#10b981"
-                  name="Costo ($)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {metrics.timeSeries.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={metrics.timeSeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="fecha" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="consultas"
+                    stroke="#3b82f6"
+                    name="Consultas"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="costo"
+                    stroke="#10b981"
+                    name="Costo ($)"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                Sin datos de consultas
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -179,25 +221,28 @@ export default function DashboardPage() {
             <CardTitle>Distribución por Canal</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={metrics.canalesChart}
-                  dataKey="count"
-                  nameKey="canal"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                >
-                  {metrics.canalesChart.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {metrics.canalesChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={metrics.canalesChart}
+                    dataKey="count"
+                    nameKey="canal"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label
+                    fill="#3b82f6"
+                  />
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                Sin datos de canales
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -207,18 +252,24 @@ export default function DashboardPage() {
             <CardTitle>Volumen y Costo por Especialidad</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={metrics.especialidadesChart}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="especialidad" />
-                <YAxis yAxisId="left" />
-                <YAxis yAxisId="right" orientation="right" />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="volumen" fill="#3b82f6" name="Volumen" />
-                <Bar yAxisId="right" dataKey="costo" fill="#10b981" name="Costo ($)" />
-              </BarChart>
-            </ResponsiveContainer>
+            {metrics.especialidadesChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={metrics.especialidadesChart}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="especialidad" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="volumen" fill="#3b82f6" name="Volumen" />
+                  <Bar yAxisId="right" dataKey="costo" fill="#10b981" name="Costo ($)" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                Sin datos de especialidades
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -229,38 +280,44 @@ export default function DashboardPage() {
           <CardTitle>Top Alertas - Consultas con Riesgo Alto</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Fecha</th>
-                  <th className="text-left p-2">Especialidad</th>
-                  <th className="text-left p-2">Canal</th>
-                  <th className="text-left p-2">Costo</th>
-                  <th className="text-left p-2">Risk Score</th>
-                  <th className="text-left p-2">Afiliado</th>
-                  <th className="text-left p-2">Prestador</th>
-                </tr>
-              </thead>
-              <tbody>
-                {metrics.topAlertas.map((alerta) => (
-                  <tr key={alerta.id} className="border-b hover:bg-gray-50">
-                    <td className="p-2">{format(new Date(alerta.fecha), 'dd/MM/yyyy')}</td>
-                    <td className="p-2">{alerta.especialidad}</td>
-                    <td className="p-2">{alerta.canal}</td>
-                    <td className="p-2">${alerta.costo.toLocaleString()}</td>
-                    <td className="p-2">
-                      <Badge variant={alerta.riskScore >= 70 ? "destructive" : "warning"}>
-                        {alerta.riskScore}
-                      </Badge>
-                    </td>
-                    <td className="p-2">{alerta.afiliado}</td>
-                    <td className="p-2">{alerta.prestador}</td>
+          {metrics.topAlertas.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">Fecha</th>
+                    <th className="text-left p-2">Especialidad</th>
+                    <th className="text-left p-2">Canal</th>
+                    <th className="text-left p-2">Costo</th>
+                    <th className="text-left p-2">Risk Score</th>
+                    <th className="text-left p-2">Afiliado</th>
+                    <th className="text-left p-2">Prestador</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {metrics.topAlertas.map((alerta) => (
+                    <tr key={alerta.id} className="border-b hover:bg-gray-50">
+                      <td className="p-2">{format(new Date(alerta.fecha), 'dd/MM/yyyy')}</td>
+                      <td className="p-2">{alerta.especialidad}</td>
+                      <td className="p-2">{alerta.canal}</td>
+                      <td className="p-2">${alerta.costo.toLocaleString()}</td>
+                      <td className="p-2">
+                        <Badge variant={alerta.riskScore >= 70 ? "destructive" : "warning"}>
+                          {alerta.riskScore}
+                        </Badge>
+                      </td>
+                      <td className="p-2">{alerta.afiliado}</td>
+                      <td className="p-2">{alerta.prestador}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-muted-foreground">
+              Sin alertas de riesgo alto
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
