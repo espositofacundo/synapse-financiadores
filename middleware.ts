@@ -11,7 +11,10 @@ export function middleware(request: NextRequest) {
   const publicPaths = ['/login', '/api/auth/login']
   const isPublicPath = publicPaths.some(path => request.nextUrl.pathname.startsWith(path))
   
-  if (isPublicPath) {
+  // La landing page (/) es pública
+  const isLandingPage = request.nextUrl.pathname === '/'
+  
+  if (isPublicPath || isLandingPage) {
     return NextResponse.next()
   }
   
