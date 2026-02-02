@@ -56,15 +56,15 @@ export async function GET(
         nroDoc: consulta.patient.nroDoc.substring(0, 2) + '******' + consulta.patient.nroDoc.substring(8), // anonimizado
         nroAfiliado: consulta.patient.nroAfiliado
       } : null,
-      prestador: {
+      prestador: consulta.prestador ? {
         id: consulta.prestador.id,
         nombre: consulta.prestador.nombre,
         matricula: consulta.prestador.matricula
-      },
-      financiador: {
+      } : null,
+      financiador: consulta.financiador ? {
         id: consulta.financiador.id,
         nombre: consulta.financiador.nombre
-      }
+      } : null
     }
 
     return NextResponse.json(consultaFormateada)
