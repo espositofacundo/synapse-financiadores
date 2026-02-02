@@ -124,6 +124,7 @@ export default function LoginPage() {
               <p>• cotizador@demo.com / demo123 (COTIZADOR)</p>
               <p>• aprobador@demo.com / demo123 (APROBADOR)</p>
               <p>• oficina@demo.com / demo123 (OFICINA)</p>
+              <p>• auditor@demo.com / demo123 (AUDITOR)</p>
               <p>• admin@demo.com / demo123 (ADMIN)</p>
             </div>
           </form>
