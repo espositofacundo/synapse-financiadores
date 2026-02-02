@@ -20,9 +20,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Páginas públicas que no usan el shell (landing, login)
+  const isPublicPage = pathname === '/' || pathname === '/login'
+
   useEffect(() => {
-    // No hacer fetch si ya está en login
-    if (pathname === '/login') {
+    // No hacer fetch si es página pública
+    if (isPublicPage) {
       setLoading(false)
       return
     }
@@ -34,18 +37,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           const data = await res.json()
           setUser(data.user)
         } else {
-          if (pathname !== '/login') {
+          if (!isPublicPage) {
             router.push('/login')
           }
         }
       } catch (error) {
         if (error instanceof SyntaxError) {
-          if (pathname !== '/login') {
+          if (!isPublicPage) {
             router.push('/login')
           }
         } else {
           console.error('Error obteniendo usuario:', error)
-          if (pathname !== '/login') {
+          if (!isPublicPage) {
             router.push('/login')
           }
         }
@@ -67,8 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // No mostrar shell en login
-  if (pathname === '/login') {
+  // No mostrar shell en páginas públicas (landing, login)
+  if (isPublicPage) {
     return <>{children}</>
   }
 
