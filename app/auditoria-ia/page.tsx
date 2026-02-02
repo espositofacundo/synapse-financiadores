@@ -18,23 +18,13 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import dynamic from "next/dynamic"
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts"
 import { ScanSearch, Play, Loader2, DollarSign, AlertTriangle, CheckCircle, Target, Filter, Sparkles } from "lucide-react"
 import { format, subDays } from "date-fns"
 import { es } from "date-fns/locale"
 import Link from "next/link"
-
-// Importar Recharts dinámicamente para evitar errores de SSR
-const BarChart = dynamic(() => import("recharts").then(mod => mod.BarChart), { ssr: false })
-const Bar = dynamic(() => import("recharts").then(mod => mod.Bar), { ssr: false })
-const XAxis = dynamic(() => import("recharts").then(mod => mod.XAxis), { ssr: false })
-const YAxis = dynamic(() => import("recharts").then(mod => mod.YAxis), { ssr: false })
-const CartesianGrid = dynamic(() => import("recharts").then(mod => mod.CartesianGrid), { ssr: false })
-const Tooltip = dynamic(() => import("recharts").then(mod => mod.Tooltip), { ssr: false })
-const ResponsiveContainer = dynamic(() => import("recharts").then(mod => mod.ResponsiveContainer), { ssr: false })
-const PieChart = dynamic(() => import("recharts").then(mod => mod.PieChart), { ssr: false })
-const Pie = dynamic(() => import("recharts").then(mod => mod.Pie), { ssr: false })
-const Cell = dynamic(() => import("recharts").then(mod => mod.Cell), { ssr: false })
 
 interface Metrics {
   totalAudits: number
@@ -387,8 +377,11 @@ export default function AuditoriaIAPage() {
                         cy="50%" 
                         outerRadius={80} 
                         label
-                        fill="#3b82f6"
-                      />
+                      >
+                        {severityChartData.map((entry, i) => (
+                          <Cell key={`cell-${i}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
                       <Tooltip />
                     </PieChart>
                   </ResponsiveContainer>
