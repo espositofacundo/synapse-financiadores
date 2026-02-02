@@ -283,9 +283,11 @@ export default function AuditoriaIAPage() {
           </p>
         </div>
         {userCanRun && (
-          <Button onClick={openWizard} className="gap-2">
-            <Play className="h-4 w-4" />
-            Nueva auditoría
+          <Button asChild className="gap-2">
+            <Link href="/auditoria-ia/nueva">
+              <Play className="h-4 w-4" />
+              Nueva auditoría
+            </Link>
           </Button>
         )}
       </div>

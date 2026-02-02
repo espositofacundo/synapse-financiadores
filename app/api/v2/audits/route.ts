@@ -104,21 +104,29 @@ export async function POST(request: NextRequest) {
         select: { id: true, costo: true, riskLevel: true, especialidad: true }
       })
       if (c) consultationsToAudit = [c]
-    } else if (auditScope === 'BATCH_FILTER' && filterPayload) {
-      // Construir where desde filterPayload
-      const where: any = {}
-      if (filterPayload.from) where.fecha = { ...where.fecha, gte: new Date(filterPayload.from) }
-      if (filterPayload.to) where.fecha = { ...where.fecha, lte: new Date(filterPayload.to) }
-      if (filterPayload.especialidad) where.especialidad = filterPayload.especialidad
-      if (filterPayload.canal) where.canal = filterPayload.canal
-      if (filterPayload.riskLevel) where.riskLevel = filterPayload.riskLevel
-      if (filterPayload.costAboveP95) where.costo = { gte: filterPayload.costThreshold || 10000 }
+    } else if (auditScope === 'BATCH_FILTER') {
+      // Si se enviaron IDs específicos, usarlos directamente
+      if (consultationIds?.length) {
+        consultationsToAudit = await prisma.consulta.findMany({
+          where: { id: { in: consultationIds } },
+          select: { id: true, costo: true, riskLevel: true, especialidad: true }
+        })
+      } else if (filterPayload) {
+        // Construir where desde filterPayload
+        const where: any = {}
+        if (filterPayload.from) where.fecha = { ...where.fecha, gte: new Date(filterPayload.from) }
+        if (filterPayload.to) where.fecha = { ...where.fecha, lte: new Date(filterPayload.to) }
+        if (filterPayload.especialidad && filterPayload.especialidad !== 'all') where.especialidad = filterPayload.especialidad
+        if (filterPayload.canal && filterPayload.canal !== 'all') where.canal = filterPayload.canal
+        if (filterPayload.riskLevel && filterPayload.riskLevel !== 'all') where.riskLevel = filterPayload.riskLevel
+        if (filterPayload.costAboveP95) where.costo = { gte: filterPayload.costThreshold || 10000 }
 
-      consultationsToAudit = await prisma.consulta.findMany({
-        where,
-        select: { id: true, costo: true, riskLevel: true, especialidad: true },
-        take: 50 // Limitar para POC
-      })
+        consultationsToAudit = await prisma.consulta.findMany({
+          where,
+          select: { id: true, costo: true, riskLevel: true, especialidad: true },
+          take: 100 // Limitar para POC
+        })
+      }
     } else if (auditScope === 'RECOMMENDED_SET' && consultationIds?.length) {
       consultationsToAudit = await prisma.consulta.findMany({
         where: { id: { in: consultationIds } },
